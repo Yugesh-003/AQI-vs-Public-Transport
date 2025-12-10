@@ -4,12 +4,13 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import seaborn as sns
-import matplotlib.pyplot as plt
-from data_fetcher import AQIDataFetcher, TransportDataGenerator, save_sample_data
-from data_processor import DataProcessor
 import os
 from datetime import datetime, timedelta
+
+# Using Plotly for all visualizations (cloud-friendly)
+
+from data_fetcher import AQIDataFetcher, TransportDataGenerator, save_sample_data
+from data_processor import DataProcessor
 
 # Page configuration
 st.set_page_config(
@@ -50,14 +51,49 @@ def load_data():
     """Load and process data with caching"""
     processor = DataProcessor()
     
-    # Check if sample data exists, if not create it
-    if not os.path.exists('sample_transport_data.csv') or not os.path.exists('sample_aqi_data.csv'):
-        with st.spinner("Generating sample data..."):
-            save_sample_data()
-    
-    # Load data
-    transport_df = processor.load_transport_data('sample_transport_data.csv')
-    aqi_df = processor.load_aqi_data('sample_aqi_data.csv')
+    try:
+        # Check if sample data exists, if not create it
+        if not os.path.exists('sample_transport_data.csv') or not os.path.exists('sample_aqi_data.csv'):
+            with st.spinner("Generating sample data..."):
+                save_sample_data()
+        
+        # Load data
+        transport_df = processor.load_transport_data('sample_transport_data.csv')
+        aqi_df = processor.load_aqi_data('sample_aqi_data.csv')
+        
+    except Exception as e:
+        # If file operations fail (common in cloud deployments), generate data in memory
+        st.warning("Using in-memory data generation for cloud deployment")
+        
+        # Generate transport data in memory
+        from data_fetcher import TransportDataGenerator
+        transport_gen = TransportDataGenerator('2024-01-01', days=90)
+        transport_df = transport_gen.generate_transport_data()
+        
+        # Generate AQI data in memory
+        dates = pd.date_range(start='2024-01-01', periods=90, freq='D')
+        aqi_data = []
+        
+        for date in dates:
+            day_of_year = date.timetuple().tm_yday
+            base_aqi = 50 + 30 * np.sin(2 * np.pi * (day_of_year - 80) / 365)
+            aqi = max(0, int(np.random.normal(base_aqi, 20)))
+            
+            pm25 = max(0, np.random.normal(15 + aqi * 0.3, 5))
+            pm10 = max(0, np.random.normal(25 + aqi * 0.4, 8))
+            no2 = max(0, np.random.normal(20 + aqi * 0.2, 6))
+            o3 = max(0, np.random.normal(30 + aqi * 0.25, 7))
+            
+            aqi_data.append({
+                'date': date.date(),
+                'AQI': aqi,
+                'PM2.5': pm25,
+                'PM10': pm10,
+                'NO2': no2,
+                'Ozone': o3
+            })
+        
+        aqi_df = pd.DataFrame(aqi_data)
     
     # Merge datasets
     merged_df = processor.merge_datasets(aqi_df, transport_df)
@@ -235,11 +271,15 @@ def main():
     # Header
     st.markdown('<h1 class="main-header">🚌 AQI vs Public Transport Usage Dashboard</h1>', unsafe_allow_html=True)
     
+    # Add info about the demo
+    st.info("📊 This dashboard analyzes the relationship between Air Quality Index (AQI) and public transport usage using 90 days of simulated data with realistic patterns.")
+    
     # Load data
     try:
         df, correlations, summary_stats, processor = load_data()
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
+        st.error("Please refresh the page or contact support if the issue persists.")
         st.stop()
     
     # Sidebar

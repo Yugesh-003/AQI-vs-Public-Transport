@@ -147,42 +147,47 @@ class TransportDataGenerator:
 
 def save_sample_data():
     """Generate and save sample data for testing"""
-    # Generate transport data
-    transport_gen = TransportDataGenerator('2024-01-01', days=90)
-    transport_df = transport_gen.generate_transport_data()
-    transport_df.to_csv('sample_transport_data.csv', index=False)
-    
-    # Create sample AQI data (for testing when API is unavailable)
-    dates = pd.date_range(start='2024-01-01', periods=90, freq='D')
-    aqi_data = []
-    
-    for date in dates:
-        # Generate realistic AQI values with some correlation to season
-        day_of_year = date.timetuple().tm_yday
-        base_aqi = 50 + 30 * np.sin(2 * np.pi * (day_of_year - 80) / 365)  # Seasonal variation
-        aqi = max(0, int(np.random.normal(base_aqi, 20)))
+    try:
+        # Generate transport data
+        transport_gen = TransportDataGenerator('2024-01-01', days=90)
+        transport_df = transport_gen.generate_transport_data()
+        transport_df.to_csv('sample_transport_data.csv', index=False)
         
-        # Generate component pollutants
-        pm25 = max(0, np.random.normal(15 + aqi * 0.3, 5))
-        pm10 = max(0, np.random.normal(25 + aqi * 0.4, 8))
-        no2 = max(0, np.random.normal(20 + aqi * 0.2, 6))
-        o3 = max(0, np.random.normal(30 + aqi * 0.25, 7))
+        # Create sample AQI data (for testing when API is unavailable)
+        dates = pd.date_range(start='2024-01-01', periods=90, freq='D')
+        aqi_data = []
         
-        aqi_data.append({
-            'date': date.date(),
-            'AQI': aqi,
-            'PM2.5': pm25,
-            'PM10': pm10,
-            'NO2': no2,
-            'Ozone': o3
-        })
-    
-    aqi_df = pd.DataFrame(aqi_data)
-    aqi_df.to_csv('sample_aqi_data.csv', index=False)
-    
-    print("Sample data generated successfully!")
-    print(f"Transport data: {len(transport_df)} records")
-    print(f"AQI data: {len(aqi_df)} records")
+        for date in dates:
+            # Generate realistic AQI values with some correlation to season
+            day_of_year = date.timetuple().tm_yday
+            base_aqi = 50 + 30 * np.sin(2 * np.pi * (day_of_year - 80) / 365)  # Seasonal variation
+            aqi = max(0, int(np.random.normal(base_aqi, 20)))
+            
+            # Generate component pollutants
+            pm25 = max(0, np.random.normal(15 + aqi * 0.3, 5))
+            pm10 = max(0, np.random.normal(25 + aqi * 0.4, 8))
+            no2 = max(0, np.random.normal(20 + aqi * 0.2, 6))
+            o3 = max(0, np.random.normal(30 + aqi * 0.25, 7))
+            
+            aqi_data.append({
+                'date': date.date(),
+                'AQI': aqi,
+                'PM2.5': pm25,
+                'PM10': pm10,
+                'NO2': no2,
+                'Ozone': o3
+            })
+        
+        aqi_df = pd.DataFrame(aqi_data)
+        aqi_df.to_csv('sample_aqi_data.csv', index=False)
+        
+        print("Sample data generated successfully!")
+        print(f"Transport data: {len(transport_df)} records")
+        print(f"AQI data: {len(aqi_df)} records")
+        
+    except Exception as e:
+        print(f"Warning: Could not save sample data to files: {e}")
+        print("This is normal in cloud deployments - data will be generated in memory instead.")
 
 if __name__ == "__main__":
     save_sample_data()
