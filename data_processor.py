@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from scipy import stats
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -136,12 +135,32 @@ class DataProcessor:
         for aqi_col in aqi_cols:
             for transport_col in transport_cols:
                 if aqi_col in merged_df.columns and transport_col in merged_df.columns:
-                    corr_coef, p_value = stats.pearsonr(
-                        merged_df[aqi_col].dropna(),
-                        merged_df[transport_col].dropna()
-                    )
+                    # Calculate correlation using numpy (no scipy needed)
+                    x = merged_df[aqi_col].dropna()
+                    y = merged_df[transport_col].dropna()
+                    
+                    # Align the data (same indices)
+                    common_idx = x.index.intersection(y.index)
+                    x_aligned = x.loc[common_idx]
+                    y_aligned = y.loc[common_idx]
+                    
+                    if len(x_aligned) > 1:
+                        corr_coef = np.corrcoef(x_aligned, y_aligned)[0, 1]
+                        
+                        # Simple significance test (approximate)
+                        n = len(x_aligned)
+                        if n > 2:
+                            t_stat = corr_coef * np.sqrt((n - 2) / (1 - corr_coef**2 + 1e-10))
+                            # Approximate p-value for |t| > 2 (roughly p < 0.05)
+                            p_value = 0.01 if abs(t_stat) > 2.58 else 0.1 if abs(t_stat) > 1.96 else 0.5
+                        else:
+                            p_value = 1.0
+                    else:
+                        corr_coef = 0.0
+                        p_value = 1.0
+                    
                     correlations[f"{aqi_col}_vs_{transport_col}"] = {
-                        'correlation': corr_coef,
+                        'correlation': corr_coef if not np.isnan(corr_coef) else 0.0,
                         'p_value': p_value,
                         'significant': p_value < 0.05
                     }
